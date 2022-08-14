@@ -14,6 +14,7 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import Hid from './hid';
 
 class AppUpdater {
   constructor() {
@@ -24,6 +25,7 @@ class AppUpdater {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let hid: Hid | null = null;
 
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
@@ -93,6 +95,7 @@ const createWindow = async () => {
     } else {
       mainWindow.show();
     }
+    hid = new Hid(mainWindow.webContents);
   });
 
   mainWindow.on('closed', () => {

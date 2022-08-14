@@ -42,14 +42,14 @@ li {
   list-style: none;
 }
 
-a {
+button {
   text-decoration: none;
   height: fit-content;
   width: fit-content;
   margin: 10px;
 }
 
-a:hover {
+button:hover {
   opacity: 1;
   text-decoration: none;
 }
