@@ -14,6 +14,8 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import { setupDB } from './database';
+import * as api from './api';
 import Hid from './hid';
 
 class AppUpdater {
@@ -95,6 +97,9 @@ const createWindow = async () => {
     } else {
       mainWindow.show();
     }
+
+    setupDB();
+    ipcMain.on('login', api.login);
     hid = new Hid(mainWindow.webContents);
   });
 

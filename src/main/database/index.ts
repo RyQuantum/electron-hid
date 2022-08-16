@@ -1,17 +1,35 @@
-import sequelize from 'sequelize';
+import { Sequelize, DataTypes } from 'sequelize';
 
-// eslint-disable-next-line import/prefer-default-export
-export const lock = sequelize.define('lock', {
+const sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: 'C:\\Users\\Ryan\\AppData\\Roaming\\Rently\\sqlite.db',
+});
+
+export const Lock = sequelize.define('lock', {
   id: {
-    type: sequelize.INTEGER,
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
   },
   lockMac: {
-    type: sequelize.STRING,
+    type: DataTypes.STRING,
   },
   imei: {
-    type: sequelize.STRING,
+    type: DataTypes.STRING,
   },
   provisioning: {
-    type: sequelize.STRING,
+    type: DataTypes.STRING,
   },
 });
+
+export const setupDB = async () => {
+  try {
+    // await sequelize.authenticate();
+    await Lock.sync();
+    console.log('Connection has been established successfully.');
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+  }
+};
+
+export default sequelize;

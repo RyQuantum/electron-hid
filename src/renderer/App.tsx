@@ -6,21 +6,6 @@ import './App.css';
 
 const ipcRender = window.electron.ipcRenderer;
 
-const dataSource = [
-  {
-    id: '1',
-    lockMac: 'EF:4A:F9:38:A9:3E',
-    imei: '867997037276994',
-    provisioning: 'Done',
-  },
-  {
-    id: '2',
-    lockMac: 'E3:1D:E3:1C:2D:41',
-    imei: '867997037276995',
-    provisioning: 'Done',
-  },
-];
-
 const columns = [
   {
     title: 'id',
@@ -53,6 +38,19 @@ const Content: React.FC = () => {
     setLogs([...logs, `received:${data}`]);
   });
 
+  const [dataSource, setData] = useState([]);
+  ipcRender.on('data', (data) => {
+    const { id, lockMac, imei, provisioning } = data;
+    const lock = { id, lockMac, imei, provisioning };
+    const index = dataSource.findIndex((item) => item.id === lock.id);
+    if (index !== -1) {
+      dataSource[index].provisioning = provisioning;
+    } else {
+      dataSource.push(lock);
+    }
+    setData([...dataSource]);
+  });
+
   return (
     <div id="content">
       <div id="table">
@@ -64,12 +62,15 @@ const Content: React.FC = () => {
           header={<div>Log</div>}
           footer={
             <div id="footer">
-              <Button type="primary">Login</Button>
               <Button
                 type="primary"
-                onClick={() =>
-                  window.electron.ipcRenderer.sendMessage('start', {})
-                }
+                onClick={() => ipcRender.sendMessage('login', {})}
+              >
+                Login
+              </Button>
+              <Button
+                type="primary"
+                onClick={() => ipcRender.sendMessage('start', {})}
               >
                 Start
               </Button>
