@@ -41,16 +41,31 @@ export default class Hid extends EventEmitter {
   startTest = async (): Promise<void> => {
     await this.getInfo();
     await this.requestCsr();
+    await this.uploadCsr();
     await this.forwardCrt();
-    this.updateDBAndUI({ provisioning: 'Done' });
+    this.updateDBAndUI('Done');
   };
 
-  updateDBAndUI = (obj) => {
-    this.lock.update(obj);
-    this.webContents.send('data', { id: this.lock.id, ...obj });
+  updateDBAndUI = (provisioning: string) => {
+    this.lock.update({ provisioning });
+    this.webContents.send(
+      'lockInfo',
+      this.lock.id,
+      this.lock.lockMac,
+      this.lock.imei,
+      provisioning
+    );
   };
 
   getInfo = async (): Promise<void> => {
+    this.lock = await Lock.create({});
+    this.webContents.send(
+      'lockInfo',
+      this.lock.id,
+      null,
+      null,
+      'Requesting lock info...'
+    );
     const cmd = paddingZeroAndCrc16([0, 1, 64, 0]); // get device info command
     const res = await this.writeAndRead(cmd);
     const lockMac = [...res.slice(17, 23)]
@@ -60,26 +75,30 @@ export default class Hid extends EventEmitter {
     const imei = [...res.slice(23, 38)]
       .map((n: number) => (n - 48).toString())
       .join('');
-    this.lock = await Lock.create({ lockMac, imei });
-    this.webContents.send('data', { id: this.lock.id, lockMac, imei });
+    await this.lock.update({ lockMac, imei });
+    this.webContents.send('lockInfo', this.lock.id, lockMac, imei);
   };
 
   requestCsr = async (): Promise<void> => {
-    this.updateDBAndUI({ provisioning: 'Requesting csr...' });
+    this.updateDBAndUI('Requesting csr...');
     const cmd = paddingZeroAndCrc16([0, 1, 64, 1]); // request csr command
     const res = await this.writeAndRead(cmd);
-    this.updateDBAndUI({ provisioning: 'Uploading csr...' });
     const str = res.toString();
     const i = str.indexOf('-----END CERTIFICATE REQUEST-----');
+    this.csr = str.slice(17, i + 34);
+  };
+
+  uploadCsr = async (): Promise<void> => {
+    this.updateDBAndUI('Uploading csr...');
     this.certificate = await api.uploadCsr(
       this.lock.lockMac,
       this.lock.imei,
-      str.slice(17, i + 34)
+      this.csr
     );
   };
 
   forwardCrt = async (): Promise<void> => {
-    this.updateDBAndUI({ provisioning: 'Sending crt...' });
+    this.updateDBAndUI('Sending crt...');
     const crt = [...this.certificate.certificate].map((c) => c.charCodeAt(0));
     const arr = [0, 1, 64, 2, 0, 0, 0, 0, 0, 0, 0, 0];
     const cmd = paddingZeroAndCrc16([...arr, ...crt]); // forward crt command
@@ -97,7 +116,7 @@ export default class Hid extends EventEmitter {
         const buf = Buffer.from(cmd.slice(i, i + 64));
         const str = buf.toString('hex');
         console.log('write', str);
-        this.webContents.send('write', str);
+        this.webContents.send('usb', 'write', str);
         this.device.write([0, ...buf]);
       }
       resolve();
@@ -116,7 +135,7 @@ export default class Hid extends EventEmitter {
         const received = Buffer.from(data);
         const str = received.toString('hex');
         console.log('received', str);
-        this.webContents.send('received', str);
+        this.webContents.send('usb', 'received', str);
         if (!this.length && received[0] === 90 && received[1] === 90)
           this.length = received[2] * 256 + received[3];
         this.received = Buffer.concat([this.received, received]);
