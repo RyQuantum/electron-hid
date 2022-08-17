@@ -1,8 +1,9 @@
+import { app } from 'electron';
 import { Sequelize, DataTypes } from 'sequelize';
 
 const sequelize = new Sequelize({
   dialect: 'sqlite',
-  storage: 'C:\\Users\\Ryan\\AppData\\Roaming\\Rently\\sqlite.db',
+  storage: `${app.getPath('appData')}/Rently/V4 Tester/sqlite.db`,
 });
 
 export const Lock = sequelize.define('lock', {
