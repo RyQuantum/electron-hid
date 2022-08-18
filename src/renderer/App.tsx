@@ -1,5 +1,6 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
 import { Button, Table, List, Radio } from 'antd';
+import { LoadingOutlined, CheckCircleTwoTone } from '@ant-design/icons';
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useEvent } from 'react-use';
 
@@ -31,9 +32,16 @@ const columns = [
   },
 ];
 
-const LockTable: React.FC = () => {
-  const [dataSource, setDataSource] = useState([]);
-  const handleEvent: function = useCallback(
+type DataType = {
+  id: number;
+  lockMac?: string;
+  imei?: string;
+  provisioning?: string;
+};
+
+const DeviceTable: React.FC = () => {
+  const [dataSource, setDataSource] = useState<DataType[]>([]);
+  const handleEvent = useCallback(
     (id: number, lockMac: string, imei: string, provisioning?: string) => {
       const item = { id, lockMac, imei, provisioning, key: id };
       setDataSource((prevDataSource) => {
@@ -84,9 +92,9 @@ const LockTable: React.FC = () => {
 //   }
 // }
 
-const LockLogs: React.FC = () => {
-  const [logs, setLogs] = useState([]);
-  const handleUsbEvent = useCallback((direction: string, data: string) => {
+const DeviceLogs: React.FC = () => {
+  const [logs, setLogs] = useState<string[]>([]);
+  const handleUsbEvent = useCallback((direction: string, data?: string) => {
     const str =
       direction === 'Send' || direction === 'Received'
         ? `${direction}:\u00A0${data}`
@@ -95,7 +103,7 @@ const LockLogs: React.FC = () => {
   }, []);
   useEvent('usb', handleUsbEvent, ipcRenderer);
 
-  const [isDisabled, setDisabled] = useState(true);
+  const [loginState, setLoginState] = useState(0); // 0: failed; 1: pending; 2: success
 
   const [isConnected, setConnected] = useState(false);
   const handleConnectEvent = useCallback(
@@ -105,12 +113,12 @@ const LockLogs: React.FC = () => {
   useEvent('connected', handleConnectEvent, ipcRenderer);
 
   useEvent(
-    'loggedIn',
-    useCallback(() => setDisabled(false), []),
+    'login',
+    useCallback((state: number) => setLoginState(state), []),
     ipcRenderer
   );
 
-  const refs = useRef([]);
+  const refs = useRef<HTMLElement[]>([]);
   useEffect(() => refs.current.at(logs.length - 1)?.scrollIntoView(), [logs]);
 
   return (
@@ -119,19 +127,32 @@ const LockLogs: React.FC = () => {
         size="small"
         header={
           <div id="header">
-            <Button
-              className="button"
-              type="primary"
-              onClick={() => ipcRenderer.sendMessage('login', {})}
-            >
-              Login
-            </Button>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <Button
+                className="button"
+                type="primary"
+                onClick={() => ipcRenderer.sendMessage('login', {})}
+              >
+                Login
+              </Button>
+              &nbsp;
+              {
+                [
+                  null,
+                  <LoadingOutlined style={{ fontSize: '16px' }} />,
+                  <CheckCircleTwoTone
+                    twoToneColor="#52c41a"
+                    style={{ fontSize: '16px' }}
+                  />,
+                ][loginState]
+              }
+            </div>
             <div>
               <Radio checked={isConnected}>USB Connected</Radio>
               <Button
                 className="button"
                 type="primary"
-                disabled={isDisabled || !isConnected}
+                disabled={loginState !== 2 || !isConnected}
                 onClick={() => {
                   setLogs([]);
                   ipcRenderer.sendMessage('start', {});
@@ -146,7 +167,9 @@ const LockLogs: React.FC = () => {
         renderItem={(item, index) => (
           <List.Item
             ref={(elm) => {
-              refs.current[index] = elm;
+              if (elm) {
+                refs.current[index] = elm;
+              }
             }}
           >
             {item}
@@ -202,8 +225,8 @@ const LockLogs: React.FC = () => {
 const Content: React.FC = () => {
   return (
     <div id="content">
-      <LockTable />
-      <LockLogs />
+      <DeviceTable />
+      <DeviceLogs />
     </div>
   );
 };

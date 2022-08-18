@@ -3,9 +3,9 @@ import { ipcMain, WebContents } from 'electron';
 import HID from 'node-hid';
 import crc from 'crc';
 
-import { alert } from '../util';
-import { Lock } from '../database';
-import * as api from '../api';
+import { alert } from './util';
+import { Lock } from './db';
+import * as api from './api';
 
 const paddingZeroAndCrc16 = (arr: number[]): number[] => {
   let num = Math.floor(arr.length / 64);
@@ -20,18 +20,14 @@ const paddingZeroAndCrc16 = (arr: number[]): number[] => {
     ...Array(num * 64 - arr.length - 6).fill(0),
   ];
   const data = payload.slice(2);
-  const checksum = crc.crc16ccitt(data);
+  const checksum = crc.crc16ccitt(Buffer.from(data));
   return [...payload, Math.floor(checksum / 256), checksum % 256];
 };
 
-export default class Hid extends EventEmitter {
-  private device: HID.HID;
-
+export default class UsbController extends EventEmitter {
   private webContents: WebContents;
 
-  private lock: object | null;
-
-  private certificate: object | null;
+  private device: HID.HID;
 
   constructor(webContents: WebContents) {
     super();
@@ -39,7 +35,8 @@ export default class Hid extends EventEmitter {
     ipcMain.on('start', this.startTest);
     setInterval(() => {
       const device = HID.devices().find(
-        (d) => d.vendorId === 0x2fe3 && d.productId === 0x100
+        (d: { vendorId: number; productId: number }) =>
+          d.vendorId === 0x2fe3 && d.productId === 0x100
       );
       const prevDevice = this.device;
       if (device) {
@@ -56,43 +53,36 @@ export default class Hid extends EventEmitter {
 
   startTest = async (): Promise<void> => {
     try {
-      await this.getInfo();
-      await this.requestCsr();
-      await this.uploadCsr();
-      await this.forwardCrt();
-      this.updateDBAndUI('Fetching keys from server...');
+      const lock = await this.getInfo();
+      const csr = await this.requestCsr(lock);
+      const certificate = await this.uploadCsr(lock, csr);
+      await this.forwardCrt(lock, certificate);
+      this.updateDBAndUI(lock, 'Fetching keys from server...');
       const { privateKey, ca, rootCA } = await api.getKeys();
-      await this.forwardDevicePrivateKey(privateKey);
-      await this.forwardDeviceCA(ca);
-      await this.forwardServerCA(rootCA);
-      this.updateDBAndUI('Done');
+      await this.forwardDevicePrivateKey(lock, privateKey);
+      await this.forwardDeviceCA(lock, ca);
+      await this.forwardServerCA(lock, rootCA);
+      this.updateDBAndUI(lock, 'Done');
     } catch (err) {
       alert('error', err.message);
     }
   };
 
-  updateDBAndUI = (provisioning: string) => {
-    this.lock.update({ provisioning });
+  updateDBAndUI = (lock: Lock, provisioning: string) => {
+    lock.update({ provisioning });
     this.webContents.send('usb', provisioning);
     this.webContents.send(
       'lockInfo',
-      this.lock.id,
-      this.lock.lockMac,
-      this.lock.imei,
+      lock.id,
+      lock.lockMac,
+      lock.imei,
       provisioning
     );
   };
 
-  getInfo = async (): Promise<void> => {
-    this.lock = await Lock.create({});
-    this.webContents.send(
-      'lockInfo',
-      this.lock.id,
-      null,
-      null,
-      'Requesting lock info...'
-    );
-    this.updateDBAndUI('Requesting lock info...');
+  getInfo = async (): Promise<Lock> => {
+    const lock = await Lock.create({});
+    this.updateDBAndUI(lock, 'Requesting lock info...');
     const cmd = paddingZeroAndCrc16([0, 1, 64, 0]); // get device info command
     const res = await this.writeAndRead(cmd);
     const lockMac = [...res.slice(17, 23)]
@@ -102,54 +92,55 @@ export default class Hid extends EventEmitter {
     const imei = [...res.slice(23, 38)]
       .map((n: number) => (n - 48).toString())
       .join('');
-    await this.lock.update({ lockMac, imei });
-    this.webContents.send('lockInfo', this.lock.id, lockMac, imei);
+    await lock.update({ lockMac, imei });
+    this.updateDBAndUI(lock, `lockMac: ${lockMac} imei: ${imei}`);
+    return lock;
   };
 
-  requestCsr = async (): Promise<void> => {
-    this.updateDBAndUI('Requesting csr...');
+  requestCsr = async (lock: Lock): Promise<string> => {
+    this.updateDBAndUI(lock, 'Requesting csr...');
     const cmd = paddingZeroAndCrc16([0, 1, 64, 1]); // request csr command
     const res = await this.writeAndRead(cmd);
     const str = res.toString();
     const i = str.indexOf('-----END CERTIFICATE REQUEST-----');
-    this.csr = str.slice(17, i + 34);
+    return str.slice(17, i + 34);
   };
 
-  uploadCsr = async (): Promise<void> => {
-    this.updateDBAndUI('Uploading csr from server...');
-    this.certificate = await api.uploadCsr(
-      this.lock.lockMac,
-      this.lock.imei,
-      this.csr
-    );
+  uploadCsr = async (lock: Lock, csr: string): Promise<string> => {
+    this.updateDBAndUI(lock, 'Uploading csr from server...');
+    const { certificate } = await api.uploadCsr(lock.lockMac, lock.imei, csr);
+    return certificate;
   };
 
-  forwardCrt = async (): Promise<void> => {
-    this.updateDBAndUI('Sending crt...');
-    const crt = [...this.certificate.certificate].map((c) => c.charCodeAt(0));
+  forwardCrt = async (lock: Lock, certificate: string): Promise<void> => {
+    this.updateDBAndUI(lock, 'Sending crt...');
+    const crt = [...certificate].map((c) => c.charCodeAt(0));
     const arr = [0, 1, 64, 2, 0, 0, 0, 0, 0, 0, 0, 0];
     const cmd = paddingZeroAndCrc16([...arr, ...crt]); // forward crt command
     await this.writeAndRead(cmd);
   };
 
-  forwardServerCA = async (serverCA: string): Promise<void> => {
-    this.updateDBAndUI('Sending server CA...');
+  forwardServerCA = async (lock: Lock, serverCA: string): Promise<void> => {
+    this.updateDBAndUI(lock, 'Sending server CA...');
     const ca = [...serverCA].map((c) => c.charCodeAt(0));
     const arr = [0, 1, 64, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1];
     const cmd = paddingZeroAndCrc16([...arr, ...ca]); // forward crt command
     await this.writeAndRead(cmd);
   };
 
-  forwardDeviceCA = async (deviceCA: string): Promise<void> => {
-    this.updateDBAndUI('Sending device CA...');
+  forwardDeviceCA = async (lock: Lock, deviceCA: string): Promise<void> => {
+    this.updateDBAndUI(lock, 'Sending device CA...');
     const ca = [...deviceCA].map((c) => c.charCodeAt(0));
     const arr = [0, 1, 64, 3, 0, 0, 0, 0, 0, 0, 0, 0, 2];
     const cmd = paddingZeroAndCrc16([...arr, ...ca]); // forward crt command
     await this.writeAndRead(cmd);
   };
 
-  forwardDevicePrivateKey = async (privateKey: string): Promise<void> => {
-    this.updateDBAndUI('Sending device private key...');
+  forwardDevicePrivateKey = async (
+    lock: Lock,
+    privateKey: string
+  ): Promise<void> => {
+    this.updateDBAndUI(lock, 'Sending device private key...');
     const key = [...privateKey].map((c) => c.charCodeAt(0));
     const arr = [0, 1, 64, 3, 0, 0, 0, 0, 0, 0, 0, 0, 3];
     const cmd = paddingZeroAndCrc16([...arr, ...key]); // forward crt command

@@ -14,6 +14,7 @@ export function resolveHtmlPath(htmlFileName: string) {
 }
 
 export function alert(type: string, message: string) {
+  const title = type[0].toUpperCase() + type.slice(1);
   dialog.showMessageBox(
     new BrowserWindow({
       show: false,
@@ -21,6 +22,7 @@ export function alert(type: string, message: string) {
     }),
     {
       type,
+      title,
       message,
     }
   );

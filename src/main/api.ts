@@ -2,11 +2,12 @@ import { WebContents } from 'electron';
 import axios from 'axios';
 import FormData from 'form-data';
 
-import { alert } from '../util';
+import { alert } from './util';
 
 let accessToken: string | null = null;
 
 export const login = async (webContents: WebContents) => {
+  webContents.send('login', 1);
   const { data } = await axios.post(
     'https://api.rentlyopensesame.com/oakslock/token/login',
     { clientId: 'rently', clientSecret: 'rentlySecret' }
@@ -14,10 +15,11 @@ export const login = async (webContents: WebContents) => {
   if (data.success) {
     accessToken = data.token.accessToken;
     console.log('accessToken:', accessToken);
-    webContents.send('loggedIn');
+    webContents.send('login', 2);
     // return dialog.showMessageBox({ type: 'info', message: 'Login success' });
     return alert('info', 'Login success');
   }
+  webContents.send('login', 0);
   return alert('error', data.message);
 };
 

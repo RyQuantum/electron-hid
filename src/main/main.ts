@@ -12,11 +12,12 @@ import path from 'path';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
-import MenuBuilder from './menu';
+
 import { resolveHtmlPath } from './util';
-import { setupDB } from './database';
+import MenuBuilder from './menu';
+import * as db from './db';
 import * as api from './api';
-import Hid from './hid';
+import UsbController from './usbController';
 
 class AppUpdater {
   constructor() {
@@ -27,7 +28,6 @@ class AppUpdater {
 }
 
 let mainWindow: BrowserWindow | null = null;
-let hid: Hid | null = null;
 
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
@@ -88,6 +88,8 @@ const createWindow = async () => {
 
   mainWindow.loadURL(resolveHtmlPath('index.html'));
 
+  ipcMain.on('login', () => api.login(mainWindow.webContents));
+
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
@@ -97,10 +99,7 @@ const createWindow = async () => {
     } else {
       mainWindow.show();
     }
-
-    setupDB();
-    ipcMain.on('login', () => api.login(mainWindow.webContents));
-    hid = new Hid(mainWindow.webContents);
+    mainWindow.usbController = new UsbController(mainWindow.webContents);
   });
 
   mainWindow.on('closed', () => {
@@ -133,6 +132,8 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+db.setup();
 
 app
   .whenReady()
