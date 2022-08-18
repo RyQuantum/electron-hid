@@ -99,12 +99,13 @@ const createWindow = async () => {
     }
 
     setupDB();
-    ipcMain.on('login', api.login);
+    ipcMain.on('login', () => api.login(mainWindow.webContents));
     hid = new Hid(mainWindow.webContents);
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    app.quit();
   });
 
   const menuBuilder = new MenuBuilder(mainWindow);

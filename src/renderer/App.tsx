@@ -1,6 +1,6 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
-import { Button, Table, List } from 'antd';
-import React, { useCallback, useState } from 'react';
+import { Button, Table, List, Radio } from 'antd';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useEvent } from 'react-use';
 
 import 'antd/dist/antd.css';
@@ -86,37 +86,72 @@ const LockTable: React.FC = () => {
 
 const LockLogs: React.FC = () => {
   const [logs, setLogs] = useState([]);
-  const handleEvent = useCallback((direction: string, data: string) => {
-    setLogs((prevLogs: string[]) => [...prevLogs, `${direction}:${data}`]);
+  const handleUsbEvent = useCallback((direction: string, data: string) => {
+    const str =
+      direction === 'Send' || direction === 'Received'
+        ? `${direction}:\u00A0${data}`
+        : direction;
+    setLogs((prevLogs: string[]) => [...prevLogs, str]);
   }, []);
-  useEvent('usb', handleEvent, ipcRenderer);
+  useEvent('usb', handleUsbEvent, ipcRenderer);
+
+  const [isDisabled, setDisabled] = useState(true);
+
+  const [isConnected, setConnected] = useState(false);
+  const handleConnectEvent = useCallback(
+    (connected: boolean) => setConnected(connected),
+    []
+  );
+  useEvent('connected', handleConnectEvent, ipcRenderer);
+
+  useEvent(
+    'loggedIn',
+    useCallback(() => setDisabled(false), []),
+    ipcRenderer
+  );
+
+  const refs = useRef([]);
+  useEffect(() => refs.current.at(logs.length - 1)?.scrollIntoView(), [logs]);
 
   return (
     <div id="log">
       <List
         size="small"
         header={
-          <div id="footer">
+          <div id="header">
             <Button
+              className="button"
               type="primary"
               onClick={() => ipcRenderer.sendMessage('login', {})}
             >
               Login
             </Button>
-            <Button
-              type="primary"
-              onClick={() => {
-                setLogs([]);
-                ipcRenderer.sendMessage('start', {});
-              }}
-            >
-              Start
-            </Button>
+            <div>
+              <Radio checked={isConnected}>USB Connected</Radio>
+              <Button
+                className="button"
+                type="primary"
+                disabled={isDisabled || !isConnected}
+                onClick={() => {
+                  setLogs([]);
+                  ipcRenderer.sendMessage('start', {});
+                }}
+              >
+                Start
+              </Button>
+            </div>
           </div>
         }
-        bordered
         dataSource={logs}
-        renderItem={(item) => <List.Item>{item}</List.Item>}
+        renderItem={(item, index) => (
+          <List.Item
+            ref={(elm) => {
+              refs.current[index] = elm;
+            }}
+          >
+            {item}
+          </List.Item>
+        )}
       />
     </div>
   );
