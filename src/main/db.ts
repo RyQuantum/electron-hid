@@ -1,9 +1,10 @@
 import { app } from 'electron';
 import { Sequelize, Model, CreationOptional, DataTypes } from 'sequelize';
 
-const sequelize = new Sequelize({
+const sequelize = new Sequelize('database', '', 'Rently123', {
   dialect: 'sqlite',
   storage: `${app.getPath('appData')}/Rently/V4 Tester/sqlite.db`,
+  dialectModulePath: '@journeyapps/sqlcipher',
 });
 
 export class Lock extends Model {

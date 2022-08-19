@@ -15,8 +15,8 @@
     "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
   },
   "dependencies": {
+    "@journeyapps/sqlcipher": "^5.3.1",
     "node-hid": "^2.1.1",
-    "sequelize": "^6.21.3",
-    "sqlite3": "^5.0.11"
+    "sequelize": "^6.21.3"
   }
 }
