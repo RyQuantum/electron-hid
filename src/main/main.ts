@@ -13,7 +13,7 @@ import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 
-import { resolveHtmlPath } from './util';
+import { resolveHtmlPath, alert } from './util';
 import MenuBuilder from './menu';
 import * as db from './db';
 import * as api from './api';
@@ -88,8 +88,6 @@ const createWindow = async () => {
 
   mainWindow.loadURL(resolveHtmlPath('index.html'));
 
-  ipcMain.on('login', () => api.login(mainWindow.webContents));
-
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
@@ -99,6 +97,18 @@ const createWindow = async () => {
     } else {
       mainWindow.show();
     }
+
+    ipcMain.on('login', async () => {
+      try {
+        mainWindow!.webContents.send('login', 1);
+        await api.login(mainWindow.webContents);
+        mainWindow!.webContents.send('login', 2);
+      } catch (err) {
+        alert('error', err.message);
+        mainWindow!.webContents.send('login', 0);
+      }
+    });
+
     mainWindow.usbController = new UsbController(mainWindow.webContents);
   });
 

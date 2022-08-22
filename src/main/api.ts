@@ -7,7 +7,6 @@ import { alert } from './util';
 let accessToken: string | null = null;
 
 export const login = async (webContents: WebContents) => {
-  webContents.send('login', 1);
   const { data } = await axios.post(
     'https://api.rentlyopensesame.com/oakslock/token/login',
     { clientId: 'rently', clientSecret: 'rentlySecret' }
@@ -15,8 +14,6 @@ export const login = async (webContents: WebContents) => {
   if (data.success) {
     accessToken = data.token.accessToken;
     console.log('accessToken:', accessToken);
-    webContents.send('login', 2);
-    // return dialog.showMessageBox({ type: 'info', message: 'Login success' });
     return alert('info', 'Login success');
   }
   webContents.send('login', 0);
@@ -46,13 +43,13 @@ export const uploadCsr = async (lockMac: string, imei: string, csr: string) => {
 
 export const getKeys = async () => {
   const { data: ca } = await axios.get(
-    'http://192.168.2.8:8000/afa3ecf7f040216c421bcfcc7e7b61b5acf8dc57bff8c20d9e3bf791a645f152-certificate.pem.crt'
+    'http://192.168.2.9:8000/afa3ecf7f040216c421bcfcc7e7b61b5acf8dc57bff8c20d9e3bf791a645f152-certificate.pem.crt'
   );
   const { data: privateKey } = await axios.get(
-    'http://192.168.2.8:8000/afa3ecf7f040216c421bcfcc7e7b61b5acf8dc57bff8c20d9e3bf791a645f152-private.pem.key'
+    'http://192.168.2.9:8000/afa3ecf7f040216c421bcfcc7e7b61b5acf8dc57bff8c20d9e3bf791a645f152-private.pem.key'
   );
   const { data: rootCA } = await axios.get(
-    'http://192.168.2.8:8000/AmazonRootCA1.pem'
+    'http://192.168.2.9:8000/AmazonRootCA1.pem'
   );
 
   return { ca, privateKey, rootCA };
