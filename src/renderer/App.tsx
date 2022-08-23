@@ -131,7 +131,7 @@ const DeviceLogs: React.FC = () => {
               <Button
                 className="button"
                 type="primary"
-                onClick={() => ipcRenderer.sendMessage('login', {})}
+                onClick={() => ipcRenderer.sendMessage('login')}
               >
                 Login
               </Button>
@@ -155,7 +155,7 @@ const DeviceLogs: React.FC = () => {
                 disabled={loginState !== 2 || !isConnected}
                 onClick={() => {
                   setLogs([]);
-                  ipcRenderer.sendMessage('start', {});
+                  ipcRenderer.sendMessage('start');
                 }}
               >
                 Start

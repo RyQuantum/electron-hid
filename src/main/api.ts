@@ -2,9 +2,7 @@ import { WebContents } from 'electron';
 import axios from 'axios';
 import FormData from 'form-data';
 
-import { alert } from './util';
-
-let accessToken: string | null = null;
+let accessToken: string | null;
 
 export const login = async (webContents: WebContents) => {
   const { data } = await axios.post(
@@ -14,10 +12,10 @@ export const login = async (webContents: WebContents) => {
   if (data.success) {
     accessToken = data.token.accessToken;
     console.log('accessToken:', accessToken);
-    return alert('info', 'Login success');
+    return;
   }
   webContents.send('login', 0);
-  return alert('error', data.message);
+  throw new Error(data.message);
 };
 
 export const uploadCsr = async (lockMac: string, imei: string, csr: string) => {

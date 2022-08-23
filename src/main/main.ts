@@ -99,17 +99,20 @@ const createWindow = async () => {
     }
 
     ipcMain.on('login', async () => {
+      const window = mainWindow as BrowserWindow;
       try {
-        mainWindow!.webContents.send('login', 1);
-        await api.login(mainWindow.webContents);
-        mainWindow!.webContents.send('login', 2);
+        window.webContents.send('login', 1);
+        await api.login(window.webContents);
+        alert('info', 'Login success');
+        window.webContents.send('login', 2);
       } catch (err) {
         alert('error', err.message);
-        mainWindow!.webContents.send('login', 0);
+        window.webContents.send('login', 0);
       }
     });
 
-    mainWindow.usbController = new UsbController(mainWindow.webContents);
+    const usbController = new UsbController(mainWindow.webContents);
+    usbController.startListening();
   });
 
   mainWindow.on('closed', () => {

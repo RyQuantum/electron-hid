@@ -33,6 +33,9 @@ export default class UsbController extends EventEmitter {
     super();
     this.webContents = webContents;
     ipcMain.on('start', this.startTest);
+  }
+
+  startListening = () => {
     setInterval(() => {
       const device = HID.devices().find(
         (d: { vendorId: number; productId: number }) =>
@@ -49,7 +52,7 @@ export default class UsbController extends EventEmitter {
         this.webContents.send('connected', false);
       }
     }, 100);
-  }
+  };
 
   startTest = async (): Promise<void> => {
     try {

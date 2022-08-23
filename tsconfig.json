@@ -8,6 +8,7 @@
     "declarationMap": true,
     "jsx": "react-jsx",
     "strict": true,
+    "useUnknownInCatchVariables": false,
     "pretty": true,
     "sourceMap": true,
     "baseUrl": "./src",
