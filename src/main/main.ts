@@ -12,8 +12,12 @@ import path from 'path';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
+
+import { resolveHtmlPath, alert } from './util';
 import MenuBuilder from './menu';
-import { resolveHtmlPath } from './util';
+import * as db from './db';
+import * as api from './api';
+import UsbController from './usbController';
 
 class AppUpdater {
   constructor() {
@@ -93,10 +97,27 @@ const createWindow = async () => {
     } else {
       mainWindow.show();
     }
+
+    ipcMain.on('login', async () => {
+      const window = mainWindow as BrowserWindow;
+      try {
+        window.webContents.send('login', 1);
+        await api.login(window.webContents);
+        alert('info', 'Login success');
+        window.webContents.send('login', 2);
+      } catch (err) {
+        alert('error', err.message);
+        window.webContents.send('login', 0);
+      }
+    });
+
+    const usbController = new UsbController(mainWindow.webContents);
+    usbController.startListening();
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    app.quit();
   });
 
   const menuBuilder = new MenuBuilder(mainWindow);
@@ -110,7 +131,7 @@ const createWindow = async () => {
 
   // Remove this if your app does not use auto updates
   // eslint-disable-next-line
-  new AppUpdater();
+  // new AppUpdater();
 };
 
 /**
@@ -124,6 +145,8 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+db.setup();
 
 app
   .whenReady()
