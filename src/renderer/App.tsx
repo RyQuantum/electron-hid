@@ -94,12 +94,8 @@ const DeviceTable: React.FC = () => {
 
 const DeviceLogs: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
-  const handleUsbEvent = useCallback((direction: string, data?: string) => {
-    const str =
-      direction === 'Send' || direction === 'Received'
-        ? `${direction}:\u00A0${data}`
-        : direction;
-    setLogs((prevLogs: string[]) => [...prevLogs, str]);
+  const handleUsbEvent = useCallback((data: string) => {
+    setLogs((prevLogs: string[]) => [...prevLogs, data]);
   }, []);
   useEvent('usb', handleUsbEvent, ipcRenderer);
 

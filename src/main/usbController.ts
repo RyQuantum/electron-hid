@@ -123,11 +123,14 @@ export default class UsbController extends EventEmitter {
     await this.writeAndRead(cmd);
   };
 
-  forwardServerCA = async (lock: Lock, serverCA: string): Promise<void> => {
-    this.updateDBAndUI(lock, 'Sending server CA...');
-    const ca = [...serverCA].map((c) => c.charCodeAt(0));
-    const arr = [0, 1, 64, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1];
-    const cmd = paddingZeroAndCrc16([...arr, ...ca]); // forward crt command
+  forwardDevicePrivateKey = async (
+    lock: Lock,
+    privateKey: string
+  ): Promise<void> => {
+    this.updateDBAndUI(lock, 'Sending device private key...');
+    const key = [...privateKey].map((c) => c.charCodeAt(0));
+    const arr = [0, 1, 64, 3, 0, 0, 0, 0, 0, 0, 0, 0, 3];
+    const cmd = paddingZeroAndCrc16([...arr, ...key]); // forward crt command
     await this.writeAndRead(cmd);
   };
 
@@ -139,14 +142,42 @@ export default class UsbController extends EventEmitter {
     await this.writeAndRead(cmd);
   };
 
-  forwardDevicePrivateKey = async (
-    lock: Lock,
-    privateKey: string
-  ): Promise<void> => {
-    this.updateDBAndUI(lock, 'Sending device private key...');
-    const key = [...privateKey].map((c) => c.charCodeAt(0));
-    const arr = [0, 1, 64, 3, 0, 0, 0, 0, 0, 0, 0, 0, 3];
-    const cmd = paddingZeroAndCrc16([...arr, ...key]); // forward crt command
+  forwardServerCA = async (lock: Lock, serverCA: string): Promise<void> => {
+    this.updateDBAndUI(lock, 'Sending server CA...');
+    const ca = [...serverCA].map((c) => c.charCodeAt(0));
+    const arr = [0, 1, 64, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+    const cmd = paddingZeroAndCrc16([...arr, ...ca]); // forward crt command
+    await this.writeAndRead(cmd);
+  };
+
+  setRTC = async (): Promise<void> => {
+    const dateTime = generateDateTime2Buffer('2022-08-29', '11:11:11');
+    const cmd = paddingZeroAndCrc16([0, 1, 65, 0, 0, ...dateTime]); // test RTC command
+    await this.writeAndRead(cmd);
+  };
+
+  testHall = async (): Promise<void> => {
+    const cmd = paddingZeroAndCrc16([0, 1, 65, 1, 0]); // test RTC command
+    await this.writeAndRead(cmd);
+  };
+
+  testContactSensor = async (): Promise<void> => {
+    const cmd = paddingZeroAndCrc16([0, 1, 65, 2, 0]); // test contact sensor command
+    await this.writeAndRead(cmd);
+  };
+
+  testTouchKey = async (): Promise<void> => {
+    const cmd = paddingZeroAndCrc16([0, 1, 65, 3, 0]); // test touch key command
+    await this.writeAndRead(cmd);
+  };
+
+  testFob = async (): Promise<void> => {
+    const cmd = paddingZeroAndCrc16([0, 1, 65, 4, 0]); // test fob command
+    await this.writeAndRead(cmd);
+  };
+
+  getInfo2 = async (): Promise<void> => {
+    const cmd = paddingZeroAndCrc16([0, 1, 65, 5, 0]); // get info 2 command
     await this.writeAndRead(cmd);
   };
 
@@ -160,8 +191,7 @@ export default class UsbController extends EventEmitter {
       for (let i = 0; i < cmd.length; i += 64) {
         const buf = Buffer.from(cmd.slice(i, i + 64));
         const str = buf.toString('hex');
-        console.log('Send:', str);
-        this.webContents.send('usb', 'Send', str);
+        console.log('Sent:', str);
         this.device.write([0, ...buf]);
       }
       resolve();
@@ -180,7 +210,6 @@ export default class UsbController extends EventEmitter {
         const received = Buffer.from(data);
         const str = received.toString('hex');
         console.log('Received:', str);
-        this.webContents.send('usb', 'Received', str);
         if (!this.length && received[0] === 90 && received[1] === 90)
           this.length = received[2] * 256 + received[3];
         this.received = Buffer.concat([this.received, received]);
