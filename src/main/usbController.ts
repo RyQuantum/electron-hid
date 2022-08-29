@@ -24,6 +24,24 @@ const paddingZeroAndCrc16 = (arr: number[]): number[] => {
   return [...payload, Math.floor(checksum / 256), checksum % 256];
 };
 
+const generateDateTime2Buffer = (date: string, time: string): Buffer => {
+  let dateArr = date.split('-').map((v) => parseInt(v, 10));
+  if (dateArr[0] > 2063) dateArr = [2063, 15, 31];
+  else if (dateArr[0] < 2000) dateArr = [2000, 0, 0];
+  const timeArr = time.split(':').map((v) => parseInt(v, 10));
+
+  const yr = (dateArr[0] - 2000).toString(2).padStart(6, '0').slice(-6);
+  const mo = dateArr[1].toString(2).padStart(4, '0').slice(-4);
+  const dy = dateArr[2].toString(2).padStart(5, '0').slice(-5);
+  const hr = timeArr[0].toString(2).padStart(5, '0').slice(-5);
+  const mi = timeArr[1].toString(2).padStart(6, '0').slice(-6);
+  const sc = timeArr[2].toString(2).padStart(6, '0').slice(-6);
+
+  const dateTime = yr + mo + dy + hr + mi + sc;
+  const hexString = parseInt(dateTime, 2).toString(16).padStart(8, '0');
+  return Buffer.from(hexString, 'hex');
+};
+
 export default class UsbController extends EventEmitter {
   private webContents: WebContents;
 
@@ -66,6 +84,12 @@ export default class UsbController extends EventEmitter {
       await this.forwardDeviceCA(lock, ca);
       await this.forwardServerCA(lock, rootCA);
       this.updateDBAndUI(lock, 'Done');
+      await this.setRTC();
+      await this.testHall();
+      await this.testContactSensor();
+      await this.testTouchKey();
+      await this.testFob();
+      await this.getInfo2();
     } catch (err) {
       alert('error', err.message);
     }
