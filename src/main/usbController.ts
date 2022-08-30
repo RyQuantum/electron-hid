@@ -75,6 +75,7 @@ export default class UsbController extends EventEmitter {
   startTest = async (): Promise<void> => {
     try {
       const lock = await this.getInfo();
+      const promise = api.getDeviceToken(lock.lockMac);
       const csr = await this.requestCsr(lock);
       const certificate = await this.uploadCsr(lock, csr);
       await this.forwardCrt(lock, certificate);
@@ -90,6 +91,7 @@ export default class UsbController extends EventEmitter {
       await this.testTouchKey();
       await this.testFob();
       await this.getInfo2();
+      await promise;
     } catch (err) {
       alert('error', err.message);
     }

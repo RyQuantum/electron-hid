@@ -3,6 +3,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 
 let accessToken: string | null;
+let deviceToken: string | null;
 
 export const login = async (webContents: WebContents) => {
   const { data } = await axios.post(
@@ -15,6 +16,19 @@ export const login = async (webContents: WebContents) => {
     return;
   }
   webContents.send('login', 0);
+  throw new Error(data.message);
+};
+
+export const getDeviceToken = async (lockMac: string) => {
+  const { data } = await axios.get(
+    `https://api.rentlyopensesame.com/oakslock/token/getDeviceJwtToken?deviceMac=${lockMac}&role=ADMIN`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (data.success) {
+    deviceToken = data.token.accessToken;
+    console.log('deviceToken:', deviceToken);
+    return;
+  }
   throw new Error(data.message);
 };
 
@@ -39,7 +53,13 @@ export const uploadCsr = async (lockMac: string, imei: string, csr: string) => {
   throw new Error(data.message);
 };
 
-export const getKeys = async () => {
+type CertificateObj = {
+  privateKey: string;
+  ca: string;
+  rootCA: string;
+};
+
+export const getKeys = async (): Promise<CertificateObj> => {
   const { data: ca } = await axios.get(
     'http://192.168.2.9:8000/afa3ecf7f040216c421bcfcc7e7b61b5acf8dc57bff8c20d9e3bf791a645f152-certificate.pem.crt'
   );
