@@ -5,9 +5,10 @@ const sequelize = new Sequelize('database', '', 'Rently123', {
   dialect: 'sqlite',
   storage: `${app.getPath('appData')}/Rently/V4 Tester/sqlite.db`,
   dialectModulePath: '@journeyapps/sqlcipher',
+  logQueryParameters: true,
 });
 
-export class Lock extends Model {
+export class Device extends Model {
   declare id: CreationOptional<number>;
 
   declare lockMac: CreationOptional<string>;
@@ -17,7 +18,7 @@ export class Lock extends Model {
   declare provisioning: CreationOptional<string>;
 }
 
-Lock.init(
+Device.init(
   {
     id: {
       type: DataTypes.INTEGER.UNSIGNED,
@@ -38,16 +39,26 @@ Lock.init(
     },
   },
   {
-    tableName: 'lock',
+    tableName: 'device',
     sequelize,
   }
 );
 
 export const setup = async () => {
   try {
-    await Lock.sync();
+    await Device.sync();
     console.log('Connection has been established successfully.');
   } catch (error) {
     console.error('Unable to connect to the database:', error);
+  }
+};
+
+export const load = async (): Promise<Device[]> => {
+  try {
+    const devices = await Device.findAll({ raw: true });
+    return devices;
+  } catch (err) {
+    console.error('Unable to connect to the database:', err);
+    return [];
   }
 };

@@ -23,7 +23,7 @@ class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
     autoUpdater.logger = log;
-    autoUpdater.checkForUpdatesAndNotify();
+    // autoUpdater.checkForUpdatesAndNotify();
   }
 }
 
@@ -76,7 +76,9 @@ const createWindow = async () => {
   mainWindow = new BrowserWindow({
     show: false,
     width: 1024,
-    height: 728,
+    minWidth: 1024,
+    height: 660,
+    minHeight: 660,
     icon: getAssetPath('icon.png'),
     webPreferences: {
       sandbox: false,
@@ -86,9 +88,11 @@ const createWindow = async () => {
     },
   });
 
+  mainWindow.setMenuBarVisibility(false);
+
   mainWindow.loadURL(resolveHtmlPath('index.html'));
 
-  mainWindow.on('ready-to-show', () => {
+  mainWindow.on('ready-to-show', async () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
     }
@@ -111,8 +115,13 @@ const createWindow = async () => {
       }
     });
 
+    const devices = await db.load();
+    mainWindow.webContents.send('devices', devices); // TODO fix no data shows issue
+
     const usbController = new UsbController(mainWindow.webContents);
     usbController.startListening();
+
+    api.load(getAssetPath('AmazonRootCA1.pem'));
   });
 
   mainWindow.on('closed', () => {
@@ -131,7 +140,7 @@ const createWindow = async () => {
 
   // Remove this if your app does not use auto updates
   // eslint-disable-next-line
-  // new AppUpdater();
+  new AppUpdater();
 };
 
 /**
