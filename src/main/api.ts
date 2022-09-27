@@ -1,5 +1,5 @@
 import { WebContents } from 'electron';
-import axios from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import FormData from 'form-data';
 import fs from 'fs/promises';
 
@@ -16,7 +16,7 @@ const interceptRequest = async ({
   headers = {},
   params = {},
   ...rest
-}) => {
+}: AxiosRequestConfig) => {
   const config = {
     url,
     method,
@@ -27,12 +27,16 @@ const interceptRequest = async ({
   console.log(
     `---- req:[${method}]:(${
       config.baseURL || ''
-    }${url}) params:${JSON.stringify(params)} data:${JSON.stringify(rest.data)}`
+    }${url}) params:${JSON.stringify(params)} data:${
+      rest.data instanceof URLSearchParams
+        ? rest.data.toString()
+        : JSON.stringify(rest.data)
+    }`
   );
   return config;
 };
 
-const interceptResponse = async ({ data, config, ...rest }) => {
+const interceptResponse = async ({ data, config, ...rest }: AxiosResponse) => {
   console.log(
     `---- res:[${config.method}]:(${config.url}) ${JSON.stringify(data)}`
   );
@@ -42,17 +46,15 @@ const interceptResponse = async ({ data, config, ...rest }) => {
 axios.interceptors.request.use(interceptRequest);
 axios.interceptors.response.use(interceptResponse);
 
-export const login = async (webContents: WebContents) => {
+export const login = async () => {
   const { data } = await axios.post(`${URL}token/login`, {
     clientId: 'rently',
     clientSecret: 'rentlySecret',
   });
   if (data.success) {
     accessToken = data.token.accessToken;
-    console.log('accessToken:', accessToken);
     return;
   }
-  webContents.send('login', 0);
   throw new Error(data.message);
 };
 
@@ -63,7 +65,6 @@ export const getDeviceToken = async (lockMac: string) => {
   );
   if (data.success) {
     deviceToken = data.token.accessToken;
-    console.log('deviceToken:', deviceToken);
     return;
   }
   throw new Error(data.message);
@@ -110,8 +111,8 @@ export const uploadCsr = async (
 export const requestServerCommand = async (
   lockMac: string,
   operation: string,
-  bleResponse: string,
-  parameters: object | null
+  bleResponse?: string,
+  parameters?: object
 ): Promise<{ success: boolean; command?: string }> => {
   const url = `${URL}device/bleCommand?`;
   let params: { command: string; lockMac: string; response?: string } = {
@@ -129,17 +130,17 @@ export const requestServerCommand = async (
     url,
     params,
   });
-  console.log('requestServerCommand', data);
   return data;
 };
 
 export const forwardResponseToServer = async (
   lockMac: string,
-  bleResponse: string
+  bleResponse: string,
+  parameters?: object
 ): Promise<{ success: boolean; command?: string }> => {
   const url = `${URL}device/bleCommandResponse?`;
   const params = { lockMac };
-  const data = new URLSearchParams({ response: bleResponse }); // TODO verify hub if support this function
+  const data = new URLSearchParams({ response: bleResponse, ...parameters });
   const res = await axios({
     method: 'post',
     headers: {
@@ -150,6 +151,5 @@ export const forwardResponseToServer = async (
     params,
     data,
   });
-  console.log('forwardResponseToServer', res.data);
   return res.data;
 };

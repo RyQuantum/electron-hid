@@ -1,36 +1,12 @@
-import EventEmitter from 'events';
 import { ipcMain, WebContents } from 'electron';
 import HID from 'node-hid';
-import crc from 'crc';
 import tz from 'timezone';
 import America from 'timezone/America';
 
-import { alert } from './util';
+import { alert, paddingZeroAndCrc16 } from './util';
 import { Device } from './db';
+import MiniBleLibrary from './miniBleLibrary';
 import * as api from './api';
-
-type Log = {
-  step: string;
-  state?: 'pending' | 'success' | 'failed';
-  payload: object;
-};
-
-const paddingZeroAndCrc16 = (arr: number[]): number[] => {
-  let num = Math.floor(arr.length / 64);
-  if (num * 64 < arr.length) num += 1;
-  const length = num * 64 - 2;
-  const payload: number[] = [
-    90,
-    90,
-    Math.floor(length / 256),
-    length % 256,
-    ...arr,
-    ...Array(num * 64 - arr.length - 6).fill(0),
-  ];
-  const data = payload.slice(2);
-  const checksum = crc.crc16ccitt(Buffer.from(data));
-  return [...payload, Math.floor(checksum / 256), checksum % 256];
-};
 
 const generateDateTime2Buffer = (date: string, time: string): Buffer => {
   let dateArr = date.split('-').map((v) => parseInt(v, 10));
@@ -50,14 +26,16 @@ const generateDateTime2Buffer = (date: string, time: string): Buffer => {
   return Buffer.from(hexString, 'hex');
 };
 
-export default class UsbController extends EventEmitter {
+export default class UsbController {
   private webContents: WebContents;
+
+  private miniBleLibrary: MiniBleLibrary;
 
   private device: HID.HID;
 
   constructor(webContents: WebContents) {
-    super();
     this.webContents = webContents;
+    this.miniBleLibrary = new MiniBleLibrary(this);
     ipcMain.on('start', this.startTest);
   }
 
@@ -97,7 +75,7 @@ export default class UsbController extends EventEmitter {
       await this.testFob(device);
       await this.getInfo2(device);
       await promise;
-      await this.init(device);
+      await this.miniBleLibrary.init(device);
       this.updateDBAndUI(device, 'Done');
     } catch (err) {
       alert('error', err.message);
@@ -117,7 +95,7 @@ export default class UsbController extends EventEmitter {
     console.log(provisioning);
     this.webContents.send('usb', step, state, payload);
     this.webContents.send(
-      'lockInfo',
+      'device',
       device.id,
       device.lockMac,
       device.imei,
@@ -285,88 +263,6 @@ export default class UsbController extends EventEmitter {
       iccid,
       battery,
     });
-  };
-
-  init = async (device: Device): Promise<void> => {
-    this.updateDBAndUI(device, 'Initialization', 'pending');
-    const workflow = 'init';
-    const parameters = {
-      lockMac: device.lockMac,
-      lockType: 'V3Lock',
-      battery: 100,
-      modelNum: 3,
-      hardwareVer: 1,
-      firmwareVer: 1,
-      V3LockDeviceId: device.lockMac.split(':').slice(2).join('').toUpperCase(),
-      timezone: 'Pacific Time (US & Canada)',
-    };
-    let serverResponse: { success: boolean; command?: string };
-    let bleResponse = '';
-    do {
-      // eslint-disable-next-line no-await-in-loop
-      serverResponse = await api.requestServerCommand(
-        device.lockMac,
-        workflow,
-        bleResponse,
-        parameters
-      );
-      if (!serverResponse.success) {
-        // eslint-disable-next-line @typescript-eslint/no-throw-literal
-        throw serverResponse; // TODO eslint disable command
-      }
-      // eslint-disable-next-line no-await-in-loop
-      bleResponse = await this.sendBleCommandByUsb(
-        device,
-        serverResponse.command!.slice(6, 10) === '0000'
-          ? 'add session key'
-          : 'init',
-        serverResponse.command!
-      );
-    } while (bleResponse.slice(6, 10) !== '0001');
-    serverResponse = await api.forwardResponseToServer(
-      device.lockMac,
-      bleResponse
-    );
-    if (!serverResponse.success) {
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
-      throw serverResponse; // TODO eslint disable command
-    }
-    while (serverResponse.command) {
-      // eslint-disable-next-line no-await-in-loop
-      bleResponse = await this.sendBleCommandByUsb(
-        device,
-        'init',
-        serverResponse.command
-      );
-      // eslint-disable-next-line no-await-in-loop
-      serverResponse = await api.forwardResponseToServer(
-        device.lockMac,
-        bleResponse
-      );
-      if (!serverResponse.success) {
-        // eslint-disable-next-line @typescript-eslint/no-throw-literal
-        throw serverResponse; // TODO eslint disable command
-      }
-    }
-  };
-
-  sendBleCommandByUsb = async (
-    device: Device,
-    name: string,
-    command: string
-  ): Promise<string> => {
-    this.updateDBAndUI(device, `Send ${name} command`, 'pending');
-    const cmd = paddingZeroAndCrc16([
-      0,
-      1,
-      170,
-      // 85 + (name === 'init' ? 1 : 0), TODO info Felix
-      85,
-      ...Array(8).fill(0),
-      ...Buffer.from(command, 'hex'),
-    ]); // get info 2 command
-    const res = await this.writeAndRead(cmd);
-    return res.subarray(17, 17 + res[19] + 3).toString('hex');
   };
 
   writeAndRead = async (cmd: number[]): Promise<Buffer> => {

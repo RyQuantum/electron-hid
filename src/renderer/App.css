@@ -9,25 +9,3 @@
   height: 100%;
   min-width: 820px;
 }
-
-#table {
-  width: 60%;
-  padding: 1em;
-}
-
-#log {
-  width: 40%;
-  padding: 1em;
-  height: 100%;
-  overflow: auto;
-}
-
-#log > div {
-  height: 100%;
-}
-
-#header {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-}

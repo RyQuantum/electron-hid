@@ -1,0 +1,16 @@
+#log {
+  width: 40%;
+  padding: 1em;
+  height: 100%;
+  overflow: auto;
+}
+
+#log > div {
+  height: 100%;
+}
+
+#header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}

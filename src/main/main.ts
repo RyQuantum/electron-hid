@@ -102,21 +102,20 @@ const createWindow = async () => {
       mainWindow.show();
     }
 
-    ipcMain.on('login', async () => {
-      const window = mainWindow as BrowserWindow;
+    ipcMain.on('login', async (event) => {
       try {
-        window.webContents.send('login', 1);
-        await api.login(window.webContents);
+        event.reply('login', 1);
+        await api.login();
         alert('info', 'Login success');
-        window.webContents.send('login', 2);
+        event.reply('login', 2);
       } catch (err) {
         alert('error', err.message);
-        window.webContents.send('login', 0);
+        event.reply('login', 0);
       }
     });
 
     const devices = await db.load();
-    mainWindow.webContents.send('devices', devices); // TODO fix no data shows issue
+    mainWindow.webContents.send('devices', devices);
 
     const usbController = new UsbController(mainWindow.webContents);
     usbController.startListening();
