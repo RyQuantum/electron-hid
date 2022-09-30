@@ -7,6 +7,62 @@ import './DeviceLogs.css';
 
 const { ipcRenderer } = window.electron;
 
+const convert = (state?: string) => {
+  switch (state) {
+    case 'pending':
+      return <LoadingOutlined style={{ fontSize: '16px' }} />;
+    case 'success':
+      return (
+        <CheckCircleTwoTone
+          twoToneColor="#52c41a"
+          style={{ fontSize: '16px' }}
+        />
+      );
+    case 'failed': // TODO
+    default:
+      return null;
+  }
+};
+
+const Log = ({
+  data,
+}: {
+  data: {
+    step: string;
+    state?: 'pending' | 'success' | 'failed';
+    payload?: object;
+  };
+}) => {
+  if (data.step === 'Done')
+    return (
+      <div style={{ flexDirection: 'row' }}>
+        <span>Done&nbsp;&nbsp;</span>
+        {convert('success')}
+      </div>
+    );
+  if (data.payload) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flexDirection: 'row' }}>
+          <span>{data.step}:&nbsp;&nbsp;</span>
+          {convert(data.state)}
+        </div>
+        <span>{JSON.stringify(data.payload)}</span>
+      </div>
+    );
+  }
+  if (data.state) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'row' }}>
+        <span>{data.step}:&nbsp;&nbsp;</span>
+        <div>{convert(data.state)}</div>
+      </div>
+    );
+  }
+  return <span>{data.step}</span>;
+};
+
+// TODO add distinct final conclusion
 const DeviceLogs: React.FC = () => {
   const [logs, setLogs] = useState<
     {
@@ -98,51 +154,6 @@ const DeviceLogs: React.FC = () => {
         }
         dataSource={logs}
         renderItem={(item, index) => {
-          let res;
-          const convert = (state?: string) => {
-            // return state;
-            switch (state) {
-              case 'pending':
-                return <LoadingOutlined style={{ fontSize: '16px' }} />;
-              case 'success':
-                return (
-                  <CheckCircleTwoTone
-                    twoToneColor="#52c41a"
-                    style={{ fontSize: '16px' }}
-                  />
-                );
-              case 'failed': // TODO
-              default:
-                return null;
-            }
-          };
-          if (item.step === 'Done')
-            res = (
-              <div style={{ flexDirection: 'row' }}>
-                <span>Done&nbsp;&nbsp;</span>
-                {convert('success')}
-              </div>
-            );
-          else if (item.payload) {
-            res = (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', flexDirection: 'row' }}>
-                  <span>{item.step}:&nbsp;&nbsp;</span>
-                  {convert(item.state)}
-                </div>
-                <span>{JSON.stringify(item.payload)}</span>
-              </div>
-            );
-          } else if (item.state) {
-            res = (
-              <div style={{ display: 'flex', flexDirection: 'row' }}>
-                <span>{item.step}:&nbsp;&nbsp;</span>
-                <div>{convert(item.state)}</div>
-              </div>
-            );
-          } else {
-            res = item.step;
-          }
           return (
             <List.Item
               ref={(elm) => {
@@ -151,7 +162,7 @@ const DeviceLogs: React.FC = () => {
                 }
               }}
             >
-              {res}
+              <Log data={item} />
             </List.Item>
           );
         }}

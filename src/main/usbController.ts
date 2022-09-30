@@ -3,28 +3,10 @@ import HID from 'node-hid';
 import tz from 'timezone';
 import America from 'timezone/America';
 
-import { alert, paddingZeroAndCrc16 } from './util';
+import { alert, paddingZeroAndCrc16, generateDateTime2Buffer } from './util';
 import { Device } from './db';
 import MiniBleLibrary from './miniBleLibrary';
 import * as api from './api';
-
-const generateDateTime2Buffer = (date: string, time: string): Buffer => {
-  let dateArr = date.split('-').map((v) => parseInt(v, 10));
-  if (dateArr[0] > 2063) dateArr = [2063, 15, 31];
-  else if (dateArr[0] < 2000) dateArr = [2000, 0, 0];
-  const timeArr = time.split(':').map((v) => parseInt(v, 10));
-
-  const yr = (dateArr[0] - 2000).toString(2).padStart(6, '0').slice(-6);
-  const mo = dateArr[1].toString(2).padStart(4, '0').slice(-4);
-  const dy = dateArr[2].toString(2).padStart(5, '0').slice(-5);
-  const hr = timeArr[0].toString(2).padStart(5, '0').slice(-5);
-  const mi = timeArr[1].toString(2).padStart(6, '0').slice(-6);
-  const sc = timeArr[2].toString(2).padStart(6, '0').slice(-6);
-
-  const dateTime = yr + mo + dy + hr + mi + sc;
-  const hexString = parseInt(dateTime, 2).toString(16).padStart(8, '0');
-  return Buffer.from(hexString, 'hex');
-};
 
 export default class UsbController {
   private webContents: WebContents;
@@ -120,7 +102,6 @@ export default class UsbController {
       lockMac,
       imei,
     });
-    // this.updateDBAndUI(device, `lockMac: ${lockMac} imei: ${imei}`);
     return device;
   };
 
@@ -201,6 +182,7 @@ export default class UsbController {
   };
 
   testHallSensor = async (device: Device): Promise<void> => {
+    // TODO rename hall to apply for both lock and panel
     this.updateDBAndUI(device, 'Test hall sensor', 'pending');
     const cmd = paddingZeroAndCrc16([0, 1, 65, 1, 0]); // test Hall command
     await this.writeAndRead(cmd);
