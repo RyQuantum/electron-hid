@@ -18,5 +18,8 @@
     "@journeyapps/sqlcipher": "^5.3.1",
     "node-hid": "^2.1.1",
     "sequelize": "^6.21.3"
+  },
+  "resolutions": {
+    "nan": "github:tec27/nan#remove_accessor_signature"
   }
 }
