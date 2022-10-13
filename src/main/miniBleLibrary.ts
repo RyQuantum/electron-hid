@@ -31,7 +31,7 @@ export default class MiniBleLibrary {
       V3LockDeviceId: device.lockMac.split(':').slice(2).join('').toUpperCase(),
       timezone: 'Pacific Time (US & Canada)',
     };
-    return this.initiateE2EWorkflow(device, 'init', parameters);
+    return this.initiateE2EWorkflow(device, 'init', parameters); // TODO differentiate USB command and server API calling
   };
 
   initiateE2EWorkflow = async (
